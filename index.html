@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI E-Waste Quiz</title>
+    <style>
+        /* Basic CSS for readability - add your own styling */
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .question { margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+        .options div { margin: 10px 0; cursor: pointer; padding: 5px; border: 1px solid #eee; }
+        .options div:hover { background-color: #f0f0f0; }
+        .selected { background-color: #e0e0ff !important; border-color: #00f !important; }
+        #results { margin-top: 30px; padding: 15px; border: 2px solid green; display: none; }
+    </style>
+</head>
+<body>
+    <h1>🌍 AI-Powered E-Waste Quiz</h1>
+    <button id="generateQuiz">Generate New Quiz</button>
+    <div id="quizContainer">
+        <p>Click "Generate New Quiz" to start!</p>
+    </div>
+    <button id="submitQuiz" style="display:none;">Submit Answers</button>
+    <div id="results"></div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api/generate-quiz'; // Your backend endpoint
+        const generateButton = document.getElementById('generateQuiz');
+        const submitButton = document.getElementById('submitQuiz');
+        const quizContainer = document.getElementById('quizContainer');
+        const resultsContainer = document.getElementById('results');
+        let currentQuizData = [];
+        let userAnswers = {}; // { questionId: 'A', questionId: 'C', ... }
+
+        generateButton.addEventListener('click', generateQuiz);
+        submitButton.addEventListener('click', submitQuiz);
+
+        async function generateQuiz() {
+            quizContainer.innerHTML = '<p>Generating quiz questions with Gemini AI...</p>';
+            submitButton.style.display = 'none';
+            resultsContainer.style.display = 'none';
+            userAnswers = {};
+
+            try {
+                // Call the backend endpoint
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ numQuestions: 5 }) // Request 5 questions
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.quiz) {
+                    currentQuizData = data.quiz;
+                    renderQuiz(currentQuizData);
+                    submitButton.style.display = 'block';
+                } else {
+                    quizContainer.innerHTML = `<p>Error: ${data.message || 'Could not generate quiz.'}</p>`;
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                quizContainer.innerHTML = '<p>Error connecting to the quiz server. Make sure the backend (server.js) is running!</p>';
+            }
+        }
+
+        function renderQuiz(quiz) {
+            quizContainer.innerHTML = '';
+            quiz.forEach(q => {
+                const questionEl = document.createElement('div');
+                questionEl.className = 'question';
+                questionEl.innerHTML = `
+                    <h3>${q.id}. ${q.question}</h3>
+                    <div class="options" data-question-id="${q.id}">
+                        ${Object.entries(q.options).map(([key, value]) => `
+                            <div data-option-key="${key}" onclick="selectOption(${q.id}, '${key}', this)">
+                                <strong>${key}:</strong> ${value}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                quizContainer.appendChild(questionEl);
+            });
+        }
+
+        function selectOption(questionId, optionKey, element) {
+            userAnswers[questionId] = optionKey;
+            
+            // Highlight selection
+            const optionsDiv = element.closest('.options');
+            optionsDiv.querySelectorAll('div').forEach(div => div.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+
+        function submitQuiz() {
+            let score = 0;
+            resultsContainer.innerHTML = '';
+
+            currentQuizData.forEach(q => {
+                const userAnswer = userAnswers[q.id];
+                const isCorrect = userAnswer === q.answer;
+
+                if (isCorrect) {
+                    score++;
+                }
+
+                // Display results and explanation
+                const resultEl = document.createElement('div');
+                resultEl.style.color = isCorrect ? 'green' : 'red';
+                resultEl.innerHTML = `
+                    <h4>${q.id}. ${q.question}</h4>
+                    <p>Your Answer: <strong>${userAnswer || 'Not answered'}</strong></p>
+                    <p>Correct Answer: <strong>${q.answer}</strong></p>
+                    <p>Explanation: ${q.explanation}</p>
+                    <hr>
+                `;
+                resultsContainer.appendChild(resultEl);
+            });
+
+            const finalScore = document.createElement('h2');
+            finalScore.textContent = `Final Score: ${score} / ${currentQuizData.length}`;
+            resultsContainer.prepend(finalScore);
+            resultsContainer.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
