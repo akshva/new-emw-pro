@@ -1,0 +1,10 @@
+# .gitignore
+
+# Dependency files
+/node_modules
+
+# Environment variables
+.env
+
+# Logs and other ignored files
+npm-debug.log*
